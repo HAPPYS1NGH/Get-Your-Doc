@@ -14,11 +14,12 @@ contract Doctors is ERC721, ERC721Enumerable, ERC721URIStorage, Ownable {
 
     constructor() ERC721("Doctors", "Doc") {}
 
-    function safeMint(address to, string memory uri) public onlyOwner {
+    function safeMint(address to, string memory uri) public onlyOwner returns (uint256) {
         uint256 tokenId = _tokenIdCounter.current();
         _tokenIdCounter.increment();
         _safeMint(to, tokenId);
         _setTokenURI(tokenId, uri);
+        return tokenId;
     }
 
     // The following functions are overrides required by Solidity.
