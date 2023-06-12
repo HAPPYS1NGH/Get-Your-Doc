@@ -6,5 +6,5 @@ struct Patient {
     address patientAddress;
     string name;
     string uri;
-    uint256 noOfAppointments;
+    uint256[] appointments;
 }
