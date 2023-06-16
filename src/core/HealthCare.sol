@@ -165,4 +165,8 @@ contract HealthCare {
     function getDoctorAppointmentsById(uint256 _id, uint256 _timeslot) public view returns (bool) {
         return doctors[_id].appointments[_timeslot];
     }
+
+    function getTotalPatients() public view returns (uint256) {
+        return _patientIdCounter.current();
+    }
 }
