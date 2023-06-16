@@ -34,7 +34,6 @@ contract HealthCare {
     mapping(uint256 id => Doctor) public doctors;
     mapping(uint256 id => Patient) public patients;
     mapping(uint256 id => Appointment) appointments;
-    // mapping(address patient => mapping(uint256 apponitmentId => address doctor)) private appointments;
     Counters.Counter private _patientIdCounter;
     Counters.Counter private _applicationIdCounter;
 
@@ -42,7 +41,9 @@ contract HealthCare {
     ///// Events ////////////////////
     /////////////////////////////////
     event NewDoctorRegistered(address doctorAddress, string uri);
-    event NewPatientRegistered(address patientAddress, string name, string uri);
+    event NewPatientRegistered(address patientAddress, string uri);
+    event AppointmentBooked(uint256 appointmentId, uint256 patientId, uint256 doctorId);
+    event AppointmentPaid(uint256 appointmentId, uint256 amount, address patientAddress, address doctorAddress);
 
     /////////////////////////////////
     ///// Constructor ///////////////
@@ -71,6 +72,7 @@ contract HealthCare {
         appointments[currentApplicationId] =
             Appointment(currentApplicationId, _patientId, _doctorId, false, false, false);
         patient.appointments.push(currentApplicationId);
+        emit AppointmentBooked(currentApplicationId, _patientId, _doctorId);
     }
 
     function completeAppointmentByPatient(uint256 _appointmentId) public {
@@ -89,7 +91,7 @@ contract HealthCare {
         appointment.completedByPatient = true;
     }
 
-    function receivePayment(uint256 _appointmentId) public payable {
+    function receivePaymentByDoctor(uint256 _appointmentId) public payable {
         Appointment storage appointment = appointments[_appointmentId];
         if (appointment.paymentDone == true) {
             revert PaymentAlreadyDone(_appointmentId);
@@ -103,6 +105,12 @@ contract HealthCare {
         if (!sent) {
             revert PaymentFailed();
         }
+        emit AppointmentPaid(
+            _appointmentId,
+            doctors[appointment.doctorId].feesInWei,
+            patients[appointment.patientId].patientAddress,
+            _doctorAddress
+        );
     }
 
     function addDoctor(string memory uri, uint256 _feesInWei) public payable {
@@ -116,11 +124,26 @@ contract HealthCare {
         emit NewDoctorRegistered(msg.sender, uri);
     }
 
-    function addPatient(string memory _name, string memory _uri) public {
+    function addPatient(string memory _uri) public {
         uint256 currentPatientId = _patientIdCounter.current();
         _patientIdCounter.increment();
-        patients[currentPatientId] = Patient(currentPatientId, msg.sender, _name, _uri, new uint256[](0));
-        emit NewPatientRegistered(msg.sender, _name, _uri);
+        patients[currentPatientId] = Patient(msg.sender, _uri, new uint256[](0));
+        emit NewPatientRegistered(msg.sender, _uri);
+    }
+
+    function canAccessPatientData(uint256 _patientId, uint256 _doctorId) public view returns (bool) {
+        Patient memory patient = patients[_patientId];
+        Doctor storage doctor = doctors[_doctorId];
+        if (doctor.doctorAddress != msg.sender) {
+            return false;
+        }
+        for (uint256 i = 0; i < patient.appointments.length; i++) {
+            Appointment memory appointment = appointments[patient.appointments[i]];
+            if (appointment.patientId == _patientId && appointment.doctorId == _doctorId) {
+                return true;
+            }
+        }
+        return false;
     }
 
     function getDoctorById(uint256 _id) public view returns (address) {
@@ -129,5 +152,17 @@ contract HealthCare {
 
     function getPatientById(uint256 _id) public view returns (Patient memory) {
         return patients[_id];
+    }
+
+    function getDoctorAddressById(uint256 _id) public view returns (address) {
+        return doctors[_id].doctorAddress;
+    }
+
+    function getDoctorFeesById(uint256 _id) public view returns (uint256) {
+        return doctors[_id].feesInWei;
+    }
+
+    function getDoctorAppointmentsById(uint256 _id, uint256 _timeslot) public view returns (bool) {
+        return doctors[_id].appointments[_timeslot];
     }
 }
