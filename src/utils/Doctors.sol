@@ -47,4 +47,8 @@ contract Doctors is ERC721, ERC721Enumerable, ERC721URIStorage, Ownable {
     {
         return super.supportsInterface(interfaceId);
     }
+
+    function currentTokenId() public view returns (uint256) {
+        return _tokenIdCounter.current();
+    }
 }

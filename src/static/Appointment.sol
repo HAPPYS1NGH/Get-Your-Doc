@@ -8,4 +8,5 @@ struct Appointment {
     bool completedByPatient;
     bool completedByDoctor;
     bool paymentDone;
+    string meetingId;
 }

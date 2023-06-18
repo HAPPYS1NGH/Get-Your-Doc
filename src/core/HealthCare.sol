@@ -25,6 +25,8 @@ contract HealthCare {
     error OnlyDoctorCanReceivePayment(address defaulter, address doctorAddress);
     error PaymentAlreadyDone(uint256 appointmentId);
     error PaymentFailed();
+    error URICannotBeEmpty();
+    error DoctorFeesCannotBeZero();
 
     /////////////////////////////////
     ///// State Variables ///////////
@@ -32,7 +34,9 @@ contract HealthCare {
 
     Doctors public doctorsNFT;
     mapping(uint256 id => Doctor) public doctors;
+    mapping(address doctor => uint256 id) public doctorIds;
     mapping(uint256 id => Patient) public patients;
+    mapping(address patient => uint256 id) public patientIds;
     mapping(uint256 id => Appointment) appointments;
     Counters.Counter private _patientIdCounter;
     Counters.Counter private _applicationIdCounter;
@@ -53,7 +57,10 @@ contract HealthCare {
         doctorsNFT = new Doctors();
     }
 
-    function makeAppointment(uint256 _patientId, uint256 _doctorId, uint256 timeslot) public payable {
+    function makeAppointment(uint256 _patientId, uint256 _doctorId, uint256 timeslot, string memory _meetingId)
+        public
+        payable
+    {
         Patient storage patient = patients[_patientId];
         if (patient.patientAddress != msg.sender) {
             revert OnlyPatientCanBookAppointment(msg.sender, patient.patientAddress);
@@ -70,7 +77,7 @@ contract HealthCare {
         uint256 currentApplicationId = _applicationIdCounter.current();
         _applicationIdCounter.increment();
         appointments[currentApplicationId] =
-            Appointment(currentApplicationId, _patientId, _doctorId, false, false, false);
+            Appointment(currentApplicationId, _patientId, _doctorId, false, false, false, _meetingId);
         patient.appointments.push(currentApplicationId);
         emit AppointmentBooked(currentApplicationId, _patientId, _doctorId);
     }
@@ -117,17 +124,28 @@ contract HealthCare {
         if (msg.value < 0.1 ether) {
             revert StakeMoreToBecomeDoctor(msg.value, 0.1 ether);
         }
+        if (bytes(uri).length == 0) {
+            revert URICannotBeEmpty();
+        }
+        if (_feesInWei == 0) {
+            revert DoctorFeesCannotBeZero();
+        }
         uint256 doctorId = doctorsNFT.safeMint(msg.sender, uri);
         Doctor storage doc = doctors[doctorId];
         doc.doctorAddress = msg.sender;
         doc.feesInWei = _feesInWei;
+        doctorIds[msg.sender] = doctorId;
         emit NewDoctorRegistered(msg.sender, uri);
     }
 
     function addPatient(string memory _uri) public {
+        if (bytes(_uri).length == 0) {
+            revert URICannotBeEmpty();
+        }
         uint256 currentPatientId = _patientIdCounter.current();
         _patientIdCounter.increment();
         patients[currentPatientId] = Patient(msg.sender, _uri, new uint256[](0));
+        patientIds[msg.sender] = currentPatientId;
         emit NewPatientRegistered(msg.sender, _uri);
     }
 
@@ -168,5 +186,13 @@ contract HealthCare {
 
     function getTotalPatients() public view returns (uint256) {
         return _patientIdCounter.current();
+    }
+
+    function getDoctorIdByAddress(address _doctorAddress) public view returns (uint256) {
+        return doctorIds[_doctorAddress];
+    }
+
+    function getPatientIdByAddress(address _patientAddress) public view returns (uint256) {
+        return patientIds[_patientAddress];
     }
 }
